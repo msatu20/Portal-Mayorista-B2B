@@ -1,0 +1,22 @@
+# Dependencias y builds
+node_modules/
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secretos: nunca se suben
+.env
+.env.*
+!.env.example
+
+# Listas de precios reales del proveedor (datos comerciales de terceros)
+data/
+*.csv
+!**/fixtures/**/*.csv
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
