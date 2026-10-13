@@ -1,6 +1,6 @@
 # ADR-0003: Cómo se obtiene la oferta y la disponibilidad del proveedor
 
-- **Estado:** Aceptada · 13/10/2026
+- **Estado:** Reemplazada por ADR-0005 · 13/10/2026 (el dueño optó por la verificación automática; la opción A queda como respaldo cuando el conector falla)
 - **Contexto:** no hay API ni acuerdo con el proveedor. El dueño tiene usuario y clave de su portal, donde ve
   la disponibilidad (semáforo de 4 colores, sin cantidades) y descarga la lista en CSV.
 

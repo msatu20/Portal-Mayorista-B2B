@@ -2,11 +2,14 @@
 
 | # | Riesgo | Impacto | Mitigación |
 |---|---|---|---|
-| R1 | El semáforo no da cantidades; un 🟡 o 🟠 puede no alcanzar para el pedido | Pedido confirmado sin stock | Verificación manual obligatoria (ADR-0003); confirmación parcial |
-| R2 | El CSV queda viejo (el admin no lo sube) | Precios y estados desactualizados | Aviso a las 24 h y bloqueo de compras a las 72 h (configurable) |
-| R3 | El proveedor cambia el formato del CSV | La importación falla | Validación de encabezado; rechazo total con mensaje claro; nunca se aplica a medias |
-| R4 | El proveedor renombra productos (no hay SKU) | Productos duplicados o huérfanos | Informe de diferencias; vinculación manual del producto nuevo con el anterior |
-| R5 | Demora del admin en verificar | El cliente espera; venta perdida | Recordatorio a las N horas; aviso por un canal rápido (Telegram, fase 2) |
-| R6 | Un cambio de precio del proveedor deja el margen negativo en un pedido pendiente | Pérdida | Resaltado en el panel (R-09); bloqueo de precios menores al costo |
-| R7 | La dependencia de un único proveedor y de su portal | Si cierra el acceso, no hay catálogo | Diseño con interfaces; el stock propio en fase 2 reduce la dependencia |
-| R8 | Automatizar el acceso al portal del proveedor | Bloqueo de la cuenta; posible incumplimiento de sus términos | Descartado (ADR-0003) |
+| R1 | El semáforo no da cantidades | Se autoconfirma más de lo que hay | Umbrales por color; revisión manual por encima; usar la cantidad real si E0 la encuentra |
+| R2 | La lista queda vieja | Precios y estados desactualizados | Descarga diaria automática (si E0 la valida); aviso a 24 h y bloqueo a 72 h |
+| R3 | El proveedor cambia el formato del CSV | La importación falla | Validación de encabezado; rechazo total; nunca se aplica a medias |
+| R4 | El proveedor renombra productos (no hay SKU) | Duplicados o huérfanos; el conector no los encuentra | Informe de diferencias; vinculación manual; 0 o más de 1 coincidencia → `REVIEW` |
+| R5 | El proveedor bloquea la cuenta por el acceso automático, o sus términos lo prohíben | Pérdida del proveedor | Uso moderado, solo lectura, sin evasión; revisar sus términos; pedirle una API |
+| R6 | El sitio del proveedor cambia (login, API, HTML) | El conector deja de funcionar | Validación con Zod, canario, autodesactivación y respaldo manual |
+| R7 | Otro revendedor compra entre la consulta y mi compra | Pedido confirmado sin stock | Aviso inmediato al admin; futura reserva o compra automática en el proveedor |
+| R8 | Filtración de las credenciales del proveedor | Acceso de terceros a mi cuenta | Solo variables de entorno; nunca en logs; rotar la clave ante cualquier sospecha |
+| R9 | Margen negativo por un cambio de costo con pedidos abiertos | Pérdida | Resaltado en el panel; bloqueo de precios menores al costo |
+| R10 | Demora del admin con pedidos en `NEEDS_REVIEW` | Venta perdida | Alerta urgente por WhatsApp |
+| R11 | Aprobación de plantillas de WhatsApp por parte de Meta | Demora en lanzar los avisos por WhatsApp | Lanzar con email; sumar WhatsApp cuando estén aprobadas |

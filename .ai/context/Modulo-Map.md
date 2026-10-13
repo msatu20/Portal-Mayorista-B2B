@@ -7,6 +7,7 @@ Estado: **planificado** (sin código). Actualizar cuando se cree cada carpeta.
 | Auth y roles | `auth/` | `(auth)/ingresar`, `registro` | backend-api, security-reviewer | planificado |
 | Clientes | `customers/` | `admin/clientes` | backend-api | planificado |
 | Proveedor (CSV) | `supplier/` | `admin/importar` | supplier-integration | planificado |
+| Conector del proveedor | `supplier/connector/`, `jobs/` | `admin/conector` (estado) | supplier-integration | planificado (spike E0) |
 | Catálogo (mi oferta) | `catalog/` | `comprar`, `admin/productos` | backend-api, frontend-web | planificado |
 | Precios y cotización | `pricing/` | `admin/precios` | pricing-orders | planificado |
 | Pedidos | `orders/` | `carrito`, `mis-pedidos`, `admin/pedidos` | pricing-orders | planificado |

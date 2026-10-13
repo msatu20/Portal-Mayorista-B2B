@@ -1,138 +1,189 @@
-# Análisis funcional inicial — MVP
+# Análisis funcional — MVP
 
-Versión 0.1 · 13/10/2026 · Estado: **borrador para aprobación**
+Versión 0.2 · 13/10/2026 · Estado: **respuestas P1–P8 incorporadas; verificación automática sujeta al spike (E0)**
 
 ## 1. Objetivo del MVP
 
-Que un cliente revendedor **entre, vea los celulares que tengo en venta con mi precio, confirme
-una compra para retirar**, y que yo **reciba un aviso**. Antes de que el pedido quede confirmado,
-se verifica que el proveedor tenga disponibilidad.
+Que un cliente revendedor **entre, vea los productos que tengo en venta con mi precio y confirme
+una compra para retirar**; que el sistema **verifique automáticamente contra el portal del proveedor**
+que lo pedido existe, y que tanto yo como el cliente recibamos los avisos correspondientes.
 
-Fuera del MVP (van al backlog): cuenta corriente, pagos, cupones, garantías, reclamos, outlet,
-preventa, push, IMEI, stock propio y franjas horarias con cupo.
+Fuera del MVP (backlog): cuenta corriente, pagos, cupones, garantías, reclamos, outlet, preventa,
+push, IMEI, stock propio y franjas con cupo.
 
 ## 2. Contexto y restricciones
 
-- El proveedor tiene un portal propio. Tengo usuario y clave para ver disponibilidad y descargar la
-  lista de precios en CSV. **No hay API ni acuerdo** de integración.
-- Mi portal es independiente: marca, diseño y textos propios.
-- Las tres capas de datos se mantienen separadas:
-  1. **Oferta del proveedor:** nombre, categoría, semáforo y costo en USD (desde el CSV).
-  2. **Mi oferta:** qué publico, con qué nombre y a qué precio (costo + regla de margen).
-  3. **Mi inventario:** stock físico propio. Fuera del MVP; el modelo lo prevé.
+- El proveedor tiene un portal propio. Tengo usuario y clave; no hay API pública ni acuerdo de integración.
+- Según la especificación observada, ese portal es una app Next.js que consulta una API REST propia
+  (`/user/products`, sesión con Auth.js). Es probable que el conector pueda hablar con esa API como lo
+  hace el navegador, sin "leer pantallas". **Se confirma en el spike E0.**
+- Tres capas de datos separadas: **oferta del proveedor**, **mi oferta** (precio publicado) y **mi inventario** (fase 2).
 
-## 3. Análisis del CSV del proveedor (lista del 13/10/2026)
+## 3. CSV del proveedor (lista del 13/10/2026)
 
 | Aspecto | Hallazgo | Consecuencia |
 |---|---|---|
-| Formato | `;` como separador, campos entre comillas, UTF-8 con emojis | Parser estricto con detección de BOM |
-| Columnas | Stock, Producto, Categoría, Precio USD, Precio ARS | Se valida el encabezado exacto |
-| Semáforo | **4 colores**: 🟢 🟡 🟠 🔴 (no 3) | Hay que confirmar qué significa cada uno (pregunta P1) |
-| Identidad | No hay código ni SKU; solo el nombre | La clave es el nombre normalizado (ADR-0004). Si el proveedor renombra un producto, el sistema lo ve como uno nuevo y el anterior queda "no listado" |
-| Nombres casi iguales | `...YARA EDP 50 ML` ($23) y `...YARA EDP 50ML` ($11) son filas distintas | La normalización **no** debe unir variantes de espacios |
-| Condición | Va en el nombre: Caja Abollada, CPO, Activado, USADO, Grado A, sin caja, slim | Cada fila es un producto vendible distinto; no hace falta separar variantes en el MVP |
-| Precios | `$1.150` = 1150 USD; sin decimales | El punto se interpreta como separador de miles |
-| ARS | Cotización implícita constante (1565 ARS/USD en esta lista) | Sirve como control; mi ARS usa mi cotización |
-| Categorías | IPHONE, IPHONE USADO, PRODUCTOS APPLE, XIAOMI, SAMSUNG, MOTOROLA, REALME, INFINIX, ARTICULOS VARIOS, PERFUMES, MODULOS, BATERIAS, VAPERS | El administrador elige qué categorías publicar (por defecto: solo celulares) |
-| Datos | Cada snapshot es "el estado al momento de la descarga" | Hay que mostrar su antigüedad; un CSV viejo no garantiza nada |
+| Formato | `;`, campos entre comillas, UTF-8 con emojis | Parser estricto con detección de BOM |
+| Semáforo | 🟢 disponible · 🟡 stock medio · 🟠 pocas unidades · 🔴 sin stock (**confirmado**) | Sin cantidades exactas |
+| Identidad | No hay SKU; solo el nombre | Clave = nombre normalizado (ADR-0004) |
+| Nombres casi iguales | `...50 ML` a $23 y `...50ML` a $11 | La normalización no une variantes de espacios |
+| Condición | Va en el nombre (Caja Abollada, CPO, USADO, etc.) | Cada fila es un producto distinto |
+| ARS | Cotización implícita (1565 en esta lista) | Es la **cotización del proveedor**, la opción por defecto (§7) |
+| Categorías | Muchas no son celulares | El admin elige qué publicar |
 
-Validaciones y tolerancia a archivos defectuosos: ver `.ai/skills/csv-import-validation.md`.
+Validaciones: `.ai/skills/csv-import-validation.md`. Si el spike E0 lo permite, la lista también se
+puede traer en forma automática (una vez por día), sin subir el CSV a mano.
 
-## 4. Disponibilidad: cómo se verifica (ADR-0003)
+## 4. Qué ve el cliente según el color
 
-**Límite real:** el CSV es una foto del momento; el semáforo no da cantidades. Un 🟡 o 🟠 no dice si
-alcanzan para 5 unidades. Ninguna regla automática basada en el CSV puede garantizar stock.
+| Color (último dato) | Se muestra | Texto al cliente | Puede comprar |
+|---|---|---|---|
+| 🟢 | Sí | "Disponible" | Sí |
+| 🟡 | Sí | "Stock limitado — confirmación en minutos" | Sí |
+| 🟠 | Sí | "Últimas unidades — confirmación en minutos" | Sí |
+| 🔴 | **No** | — | No |
+| No listado en la última lista | No | — | No |
 
-**Solución del MVP: verificación manual asistida.**
+## 5. Verificación de disponibilidad (ADR-0005)
 
-1. El cliente confirma la compra → el pedido queda **Pendiente de verificación** (el cliente lo ve así, con un texto claro).
-2. Me llega un email con el pedido y el **nombre exacto de cada producto según el proveedor**.
-3. Entro al portal del proveedor (yo, con mi usuario), verifico o hago la compra allá, y en mi panel marco:
-   **Confirmar** (con día y hora de retiro), **Confirmar parcial** (quitando ítems) o **Rechazar**.
-4. El cliente recibe un email con el resultado.
+**Flujo:**
+1. El cliente confirma → el pedido queda **Preconfirmado** (`PENDING_CHECK`). Recibe un email y un WhatsApp:
+   "Recibimos tu pedido; en unos minutos te confirmamos la disponibilidad".
+2. Un proceso en segundo plano entra al portal del proveedor con mis credenciales y consulta el estado
+   actual de cada ítem. Reutiliza la sesión y respeta un límite de consultas.
+3. Por ítem se decide, según la **política de autoconfirmación** (configurable):
 
-El semáforo del último CSV sirve como **filtro previo**: los productos 🔴 no se pueden comprar,
-y los 🟡/🟠 muestran "stock limitado, sujeto a confirmación".
+   | Estado en vivo | Regla por defecto |
+   |---|---|
+   | 🟢 | Disponible → autoconfirma |
+   | 🟡 | Autoconfirma si la cantidad ≤ 2; si no, revisión del admin |
+   | 🟠 | Autoconfirma si la cantidad ≤ 1; si no, revisión del admin |
+   | 🔴 o no encontrado | No disponible |
+   | Si el proveedor expone la **cantidad real** (se verifica en E0) | Se compara cantidad pedida contra disponible y no se usan umbrales |
 
-**Descartado por ahora:** que el sistema entre solo al portal del proveedor con mi usuario y clave
-(bot o scraping). Motivos: probablemente viola sus términos de uso, puede hacer que **bloqueen mi
-cuenta y pierda al proveedor**, se rompe con cualquier cambio de su web y obliga a guardar sus
-credenciales. Si en algún momento el proveedor da una API o una autorización por escrito,
-se conecta detrás de la interfaz `AvailabilityChecker` sin rehacer el sistema.
+4. Resultado del pedido:
+   - Todo disponible → **Confirmado** (`CONFIRMED`). Aviso al cliente con lugar y horario de retiro,
+     y aviso al admin: "comprá/reservá en el proveedor".
+   - Una parte disponible → **Esperando al cliente** (`AWAITING_CUSTOMER`). El cliente elige
+     "Acepto lo disponible" o "Cancelo todo" (vence en N horas; por defecto se cancela).
+   - Nada disponible → **Rechazado** (`REJECTED`).
+   - Algún ítem en revisión → **Revisión manual** (`NEEDS_REVIEW`), con aviso al admin.
+5. **Principio de seguridad:** si la consulta falla (login rechazado, sitio caído, cambio en la web,
+   captcha, tiempo agotado), **nunca se confirma**. El pedido pasa a `NEEDS_REVIEW` y se avisa al admin
+   por WhatsApp y email. El cliente sigue viendo "en verificación".
 
-**Recomendación comercial:** preguntarle al proveedor si ofrece algún feed o API para revendedores.
-Es común, porque les traés ventas.
+**Sobre el "100 %":** el sistema garantiza que **solo confirma con un dato en vivo positivo del proveedor**
+y que ante cualquier duda no confirma. Hay un riesgo residual que ningún sistema elimina sin poder reservar
+en el proveedor: que otro revendedor compre esas unidades entre la consulta y el momento en que yo compro.
+Se reduce con el aviso inmediato al admin. La certeza total se logra cuando el sistema, además, **compra o
+reserva en el proveedor** (opción futura, con aprobación del admin; ver backlog).
 
-## 5. Pedidos: estados y transiciones
+## 6. Pedidos: estados y transiciones
 
 | Desde | Acción | Hacia | Quién |
 |---|---|---|---|
-| — | Confirmar compra | `PENDING_VERIFICATION` | Cliente |
-| `PENDING_VERIFICATION` | Confirmar (total o parcial) + datos de retiro | `CONFIRMED` | Admin |
-| `PENDING_VERIFICATION` | Rechazar (sin stock, u otro motivo) | `REJECTED` | Admin |
-| `PENDING_VERIFICATION` | Cancelar | `CANCELLED` | Cliente o admin |
-| `CONFIRMED` | Cancelar | `CANCELLED` | Admin |
+| — | Confirmar compra | `PENDING_CHECK` | Cliente |
+| `PENDING_CHECK` | Verificación: todo OK | `CONFIRMED` | Sistema |
+| `PENDING_CHECK` | Verificación: parcial | `AWAITING_CUSTOMER` | Sistema |
+| `PENDING_CHECK` | Verificación: nada | `REJECTED` | Sistema |
+| `PENDING_CHECK` | Verificación con dudas o error | `NEEDS_REVIEW` | Sistema |
+| `NEEDS_REVIEW` | Confirmar total, parcial o rechazar | `CONFIRMED` / `AWAITING_CUSTOMER` / `REJECTED` | Admin |
+| `NEEDS_REVIEW` | Reintentar verificación | `PENDING_CHECK` | Admin |
+| `AWAITING_CUSTOMER` | Acepta lo disponible | `CONFIRMED` | Cliente |
+| `AWAITING_CUSTOMER` | Cancela, o vence el plazo | `CANCELLED` | Cliente o sistema |
+| `PENDING_CHECK`, `NEEDS_REVIEW`, `CONFIRMED` | Cancelar | `CANCELLED` | Admin (cliente solo antes de `CONFIRMED`) |
 | `CONFIRMED` | Marcar retirado | `PICKED_UP` | Admin |
 
-- Si un pedido está más de N horas sin verificar (configurable, por defecto 2 h hábiles), se envía un recordatorio al administrador.
-- Cada ítem congela: precio al cliente, costo del proveedor, semáforo e importación de origen.
+Cada ítem guarda: precio al cliente, costo del proveedor, color al pedir, **resultado de la verificación en
+vivo** (color o cantidad, fecha y hora) y su estado (`AVAILABLE` / `UNAVAILABLE` / `REVIEW`).
 
-## 6. Reglas de negocio (R-xx)
+## 7. Configuración (todo desde el panel de administración)
 
-- **R-01** Solo clientes aprobados ven precios y compran. El registro queda pendiente hasta que el admin lo aprueba.
-- **R-02** Precio publicado = costo del proveedor × (1 + % de margen) + monto fijo, redondeado. Las reglas aplican por producto > categoría > global.
-- **R-03** Nunca se publica un precio por debajo del costo del proveedor.
-- **R-04** Se muestran USD y ARS. ARS = USD × mi cotización (manual, o automática desde dolarapi con valor manual de respaldo).
-- **R-05** Productos 🔴, no listados en el último CSV o no publicados: no se pueden comprar.
-- **R-06** Si el último CSV tiene más de 24 h (configurable), el catálogo muestra un aviso; si tiene más de 72 h, se bloquean las compras.
-- **R-07** Si el precio cambió entre que el cliente lo vio y la confirmación, se le muestran los precios nuevos y debe reconfirmar.
-- **R-08** Un pedido nunca se informa como confirmado sin la verificación del admin.
-- **R-09** Si al importar un CSV nuevo cambia el costo o el semáforo de un producto con pedidos pendientes, el panel lo resalta.
-- **R-10** El doble clic o un reintento no crea pedidos duplicados (clave de idempotencia).
-- **R-11** Toda acción del admin (importar, cambiar reglas, cambiar estados) queda auditada.
+Las configuraciones se editan en el panel (se guardan en la base y quedan auditadas). Además se pueden
+**exportar e importar como archivo JSON**, y el sistema arranca con valores por defecto de
+`config/defaults.json`. Así no hace falta tocar archivos en el servidor ni redesplegar.
 
-## 7. Pantallas del MVP
+**Precios** — precio = costo × (1 + %) + USD fijo, con redondeo opcional:
+- Regla **global** (% y/o USD fijo).
+- Reglas por **marca** y por **categoría**.
+- Precio manual por **producto** (excepción auditada).
+- Gana la regla más específica: producto > categoría > marca > global.
+- La marca se deduce de la categoría (XIAOMI, SAMSUNG, MOTOROLA, REALME, INFINIX; IPHONE y PRODUCTOS APPLE → Apple)
+  y se puede corregir por producto (por ejemplo, en ARTICULOS VARIOS).
+- Nunca se publica por debajo del costo.
 
-**Cliente (móvil primero)**
-1. Ingreso / registro / recuperar clave.
-2. Catálogo: buscador, filtro por categoría y marca, precio USD + ARS, indicador de disponibilidad
-   (Disponible / Stock limitado / Sin stock) y botón Agregar.
-3. Carrito → confirmar compra (con notas opcionales).
-4. Mis pedidos: estado y detalle.
+**Cotización ARS** — 3 modos:
+1. **Proveedor** (por defecto): la implícita en la última lista importada.
+2. **Manual**: un valor cargado por el admin (por ejemplo, 1570).
+3. **Automática**: desde una fuente externa configurable (dolarapi.com: blue, oficial o MEP), cacheada unos minutos.
+   Si la fuente falla, se usa la del proveedor.
 
-**Administración**
-1. Importar CSV: subir archivo → informe de diferencias → aplicar.
-2. Productos: publicar o despublicar, nombre visible, foto opcional y precio manual auditado.
-3. Reglas de precio y cotización.
-4. Pedidos: bandeja de pendientes de verificación, confirmar, confirmar parcial, rechazar y marcar retirado.
-5. Clientes: aprobar o bloquear.
-6. Configuración: email de aviso, horarios y datos de retiro, umbrales de antigüedad del CSV.
+El panel muestra los tres valores lado a lado para comparar. Cada pedido guarda la cotización usada.
 
-## 8. Modelo de datos del MVP (≈15 tablas)
+**Retiro:** lugar y horario por defecto. Si no hay nada cargado, el admin los indica al confirmar cada pedido.
+También se pueden cambiar en un pedido puntual.
 
-`users`, `customers`, `categories`, `supplier_imports`, `supplier_products` (nombre normalizado,
-estado vigente), `supplier_product_snapshots` (por importación), `products` (mi oferta, 1–1 con
-el producto del proveedor), `pricing_rules`, `exchange_rates`, `orders`, `order_items`,
-`notification_outbox`, `settings`, `audit_log`, más las tablas de sesión de Auth.js.
+**Verificación:** activar o desactivar el conector, umbrales por color, plazo de respuesta del cliente
+en los pedidos parciales y antigüedad máxima de la lista.
 
-El stock propio (`stock_units`, `stock_movements`) se agrega en la fase 2 sin romper el modelo:
-un ítem de pedido tendrá un origen (`SUPPLIER` u `OWN_STOCK`).
+**Notificaciones:** email y WhatsApp del admin; canales activos.
 
-## 9. Preguntas abiertas
+## 8. Notificaciones
 
-- **P1.** ¿Qué significa cada color en el portal del proveedor? Supuesto: 🟢 disponible, 🟡 stock medio, 🟠 pocas unidades, 🔴 sin stock.
-- **P2.** ¿Registro abierto con aprobación, o los clientes los das de alta vos?
-- **P3.** ¿Margen inicial? (por ejemplo, +5 % global o +USD 10 por equipo; puede variar por categoría).
-- **P4.** ¿Qué categorías publicás? (supuesto: solo celulares, IPHONE, IPHONE USADO y algunos productos Apple).
-- **P5.** ¿Se permite la confirmación parcial, o si falta algo se rechaza todo el pedido?
-- **P6.** ¿El aviso solo por email, o también por Telegram/WhatsApp? (Telegram es gratis y simple de integrar.)
-- **P7.** ¿Datos de retiro: una dirección y horario fijos, o los indicás pedido por pedido?
-- **P8.** ¿Cotización ARS: dólar blue automático, manual, o la misma que usa el proveedor?
+| Evento | Cliente | Admin |
+|---|---|---|
+| Pedido recibido (preconfirmado) | Email + WhatsApp | Email + WhatsApp |
+| Confirmado | Email + WhatsApp (con retiro) | WhatsApp "comprá en el proveedor" |
+| Parcial (debe elegir) | Email + WhatsApp con enlace | Email |
+| Rechazado | Email + WhatsApp | — |
+| Revisión manual o fallo del conector | — | WhatsApp + email (urgente) |
+| Registro nuevo para aprobar | — | Email |
+| Cuenta aprobada | Email | — |
 
-## 10. Plan de etapas propuesto
+WhatsApp por la **API oficial de WhatsApp Business (Meta Cloud API)**: mensajes con plantillas aprobadas
+y un costo bajo por conversación. Se descartan las librerías no oficiales, porque WhatsApp bloquea esos números.
 
+## 9. Reglas de negocio
+
+- **R-01** Registro abierto; la cuenta queda pendiente hasta que el admin la aprueba. Sin aprobación no se ven precios.
+- **R-02** Precios según §7. **R-03** Nunca por debajo del costo.
+- **R-04** USD y ARS visibles; la cotización según el modo configurado.
+- **R-05** 🔴 o no listado: no se muestra.
+- **R-06** Si la lista tiene más de 24 h: aviso al admin; si tiene más de 72 h: no se aceptan compras (configurable).
+- **R-07** Si el precio cambió entre ver y confirmar, el cliente reconfirma.
+- **R-08** Ningún pedido pasa a `CONFIRMED` sin una verificación en vivo positiva o la decisión explícita del admin.
+- **R-09** Un error del conector nunca confirma: deriva a revisión manual.
+- **R-10** Idempotencia en la confirmación (el doble clic no duplica pedidos).
+- **R-11** Toda acción del admin y del conector queda auditada.
+
+## 10. Pantallas del MVP
+
+**Cliente:** registro e ingreso; catálogo (buscador, filtros por categoría y marca, USD + ARS, etiqueta
+de disponibilidad); carrito → confirmar; mis pedidos (estado, aceptar parcial o cancelar).
+
+**Admin:** pedidos (bandeja por estado, revisión manual, reintentar verificación, retiro); importar lista
+y ver diferencias; productos (publicar, nombre visible, marca, foto, precio manual); precios; cotización;
+clientes (aprobar o bloquear); configuración; estado del conector (última consulta OK, errores); auditoría.
+
+## 11. Modelo de datos (≈17 tablas)
+
+`users`, `customers`, `categories`, `brands`, `supplier_imports`, `supplier_products`,
+`supplier_product_snapshots`, `products`, `pricing_rules`, `exchange_rates`, `settings`, `orders`,
+`order_items`, `availability_checks` (cada consulta en vivo: ítem, resultado, latencia, error),
+`notification_outbox`, `audit_log`, más las tablas de sesión de Auth.js.
+
+## 12. Etapas
+
+0. **Spike del conector (E0):** confirmar que se puede consultar el stock del proveedor en forma automática y estable
+   (cómo es el login, si hay captcha o 2FA, qué devuelve la API, si incluye la cantidad real). **Define si el §5 es viable tal cual.**
 1. **Base:** monorepo, base de datos, autenticación con roles, panel mínimo.
-2. **Proveedor:** importación del CSV con validaciones, informe de diferencias, publicación de productos y reglas de precio.
-3. **Venta:** catálogo del cliente, carrito, checkout con validación de precio y estado, emails.
-4. **Operación:** bandeja de verificación, confirmación o rechazo, retiro y auditoría. → **Con esto se puede operar.**
-5. **Después:** stock propio, cuenta corriente, notificaciones push, etc. (backlog).
+2. **Proveedor:** importación de la lista, diferencias, publicación, precios, cotización.
+3. **Venta:** catálogo, carrito, checkout, email y WhatsApp.
+4. **Verificación y operación:** conector en segundo plano, estados, parciales, revisión manual, retiro y auditoría.
+   → **Con esto se puede operar.**
+5. **Después:** compra o reserva automática en el proveedor, stock propio, cuenta corriente, etc.
+
+## 13. Preguntas abiertas
+
+- **P9.** URL del portal del proveedor y forma de ingreso (¿email y clave, o Google? ¿captcha? ¿código por SMS o email?).
+- **P10.** ¿Tenés o podés crear una cuenta de WhatsApp Business para la API oficial (requiere un número dedicado)?

@@ -41,5 +41,6 @@ Rol: coordinar cualquier tarea en este repositorio. Toda sesión de IA empieza a
 
 - Nunca ejecutar migraciones destructivas, borrados masivos ni deploys sin confirmación explícita.
 - Nunca leer ni imprimir archivos `.env` reales; usar `.env.example`.
-- Nunca automatizar el ingreso al portal del proveedor (ver ADR-0003).
+- El acceso automático al portal del proveedor solo se hace a través del conector y según las reglas de ADR-0005
+  (a prueba de fallos, solo lectura, sin evadir captchas ni bloqueos). Ninguna prueba toca el sitio real.
 - Ante la duda entre dos interpretaciones de negocio: preguntar, no adivinar.
