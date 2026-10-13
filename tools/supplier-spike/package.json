@@ -1,0 +1,18 @@
+{
+  "name": "supplier-spike",
+  "private": true,
+  "type": "module",
+  "description": "E0: relevamiento del portal del proveedor (login y API de stock). Herramienta descartable.",
+  "scripts": {
+    "spike": "tsx spike.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.48.2",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.6.3"
+  }
+}

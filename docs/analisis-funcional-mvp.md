@@ -185,5 +185,6 @@ clientes (aprobar o bloquear); configuración; estado del conector (última cons
 
 ## 13. Preguntas abiertas
 
-- **P9.** URL del portal del proveedor y forma de ingreso (¿email y clave, o Google? ¿captcha? ¿código por SMS o email?).
-- **P10.** ¿Tenés o podés crear una cuenta de WhatsApp Business para la API oficial (requiere un número dedicado)?
+- **P9.** ~~Forma de ingreso al portal del proveedor~~ → usuario y clave por URL, sin captcha ni 2FA (respondida). La URL se carga solo en el `.env` local.
+- **P10.** ~~WhatsApp Business~~ → el dueño tiene un número de WhatsApp Business (respondida). Hay que verificar al configurarlo
+  si se puede usar en la app y en la Cloud API a la vez (coexistencia) o si conviene un número dedicado para la API.
