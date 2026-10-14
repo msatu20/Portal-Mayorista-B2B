@@ -1,6 +1,7 @@
 # ADR-0005: Verificación automática de stock en el portal del proveedor
 
-- **Estado:** Aceptada, condicionada al spike E0 · 13/10/2026 · Reemplaza a ADR-0003
+- **Estado:** Aceptada · 13/10/2026 · Reemplaza a ADR-0003 · E0 confirmó la viabilidad: ingreso por HTTP y cantidad exacta por color
+  (`docs/e0-resultados-conector.md`). Implementación: cliente HTTP (sin Playwright); el navegador solo como plan B.
 - **Contexto:** el dueño necesita que cada pedido se verifique automáticamente contra el proveedor antes de
   confirmarlo. No hay API pública ni acuerdo; sí hay usuario y clave propios del portal del proveedor, que
   según la especificación observada es Next.js + Auth.js y consume una API REST (`/user/products`).

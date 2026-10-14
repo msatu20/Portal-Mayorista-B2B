@@ -30,7 +30,7 @@ const paths = (process.env.SUPPLIER_PATHS ?? '/comprar,/usuario/lista-precios')
 const headless = process.env.HEADLESS === 'true';
 
 const SECRET_KEY = /token|password|secret|cookie|session|auth|csrf|signature|apikey|api_key/i;
-const PII_KEY = /email|mail|phone|tel[eé]fono|whatsapp|cuit|dni|address|direcci|deuda|debt|saldo|balance|credit|razon|firstname|lastname|nombre_cliente/i;
+const PII_KEY = /^name$|^id$|username|email|mail|phone|tel[eé]fono|whatsapp|cuit|dni|address|direcci|deuda|debt|saldo|balance|credit|razon|firstname|lastname|nombre_cliente/i;
 const STOCK_KEY = /stock|qty|quantity|cantidad|available|disponib|semaforo|status|estado|color|level|nivel/i;
 const PRODUCT_URL = /product|price|precio|stock|catalog|lista|presale|failed/i;
 const THIRD_PARTY = /google|gstatic|facebook|sentry|vercel-insights|clarity|hotjar|doubleclick|cloudflareinsights/i;

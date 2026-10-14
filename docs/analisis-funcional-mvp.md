@@ -1,6 +1,7 @@
 # Análisis funcional — MVP
 
-Versión 0.2 · 13/10/2026 · Estado: **respuestas P1–P8 incorporadas; verificación automática sujeta al spike (E0)**
+Versión 0.3 · 13/10/2026 · Estado: **E0 completado: la verificación automática es viable con la cantidad exacta**
+(ver `docs/e0-resultados-conector.md`)
 
 ## 1. Objetivo del MVP
 
@@ -31,8 +32,9 @@ push, IMEI, stock propio y franjas con cupo.
 | ARS | Cotización implícita (1565 en esta lista) | Es la **cotización del proveedor**, la opción por defecto (§7) |
 | Categorías | Muchas no son celulares | El admin elige qué publicar |
 
-Validaciones: `.ai/skills/csv-import-validation.md`. Si el spike E0 lo permite, la lista también se
-puede traer en forma automática (una vez por día), sin subir el CSV a mano.
+Validaciones: `.ai/skills/csv-import-validation.md`. **E0 confirmó** que la lista se puede traer en forma automática
+desde la API del proveedor (mismo contenido que el CSV, en JSON). Fuente principal: importación automática programada;
+el CSV queda como respaldo manual.
 
 ## 4. Qué ve el cliente según el color
 
@@ -53,13 +55,15 @@ puede traer en forma automática (una vez por día), sin subir el CSV a mano.
    actual de cada ítem. Reutiliza la sesión y respeta un límite de consultas.
 3. Por ítem se decide, según la **política de autoconfirmación** (configurable):
 
-   | Estado en vivo | Regla por defecto |
+   | Estado en vivo (API del proveedor) | Regla |
    |---|---|
-   | 🟢 | Disponible → autoconfirma |
-   | 🟡 | Autoconfirma si la cantidad ≤ 2; si no, revisión del admin |
-   | 🟠 | Autoconfirma si la cantidad ≤ 1; si no, revisión del admin |
-   | 🔴 o no encontrado | No disponible |
-   | Si el proveedor expone la **cantidad real** (se verifica en E0) | Se compara cantidad pedida contra disponible y no se usan umbrales |
+   | Unidades del color ≥ cantidad pedida + margen de seguridad (por defecto 0) | Disponible → autoconfirma |
+   | Unidades > 0 pero menos que lo pedido | Disponible en parte (se ofrece lo que hay) |
+   | 0 unidades o el producto ya no figura | No disponible |
+   | La respuesta no se puede interpretar | Revisión del admin |
+
+   Confirmado en E0: el proveedor informa la **cantidad exacta por color** (`colorStock`). Equivalencia observada
+   con el semáforo: 🟢 ≥ 11 · 🟡 5–10 · 🟠 2–4 · 🔴 = 1.
 
 4. Resultado del pedido:
    - Todo disponible → **Confirmado** (`CONFIRMED`). Aviso al cliente con lugar y horario de retiro,
@@ -71,6 +75,8 @@ puede traer en forma automática (una vez por día), sin subir el CSV a mano.
 5. **Principio de seguridad:** si la consulta falla (login rechazado, sitio caído, cambio en la web,
    captcha, tiempo agotado), **nunca se confirma**. El pedido pasa a `NEEDS_REVIEW` y se avisa al admin
    por WhatsApp y email. El cliente sigue viendo "en verificación".
+
+**Sobre la sesión:** el conector ingresa por HTTP (sin navegador) y reutiliza el token, que dura 7 días.
 
 **Sobre el "100 %":** el sistema garantiza que **solo confirma con un dato en vivo positivo del proveedor**
 y que ante cualquier duda no confirma. Hay un riesgo residual que ningún sistema elimina sin poder reservar
@@ -188,3 +194,8 @@ clientes (aprobar o bloquear); configuración; estado del conector (última cons
 - **P9.** ~~Forma de ingreso al portal del proveedor~~ → usuario y clave por URL, sin captcha ni 2FA (respondida). La URL se carga solo en el `.env` local.
 - **P10.** ~~WhatsApp Business~~ → el dueño tiene un número de WhatsApp Business (respondida). Hay que verificar al configurarlo
   si se puede usar en la app y en la Cloud API a la vez (coexistencia) o si conviene un número dedicado para la API.
+- **P11.** El stock del proveedor es por color. ¿El cliente elige el color al comprar (verificación exacta por color),
+  o compra "color a elección según disponibilidad" (se verifica el total del producto)?
+- **P12.** 🔴 en realidad significa **1 unidad**. ¿Se sigue ocultando, o se vende (máximo 1) con verificación en vivo?
+- **P13.** ¿Le mostramos al cliente cuántas unidades quedan, o solo la etiqueta (Disponible / Stock limitado)?
+  En cualquier caso, la cantidad máxima que puede pedir se limita a lo disponible.

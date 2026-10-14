@@ -2,7 +2,9 @@
 
 | # | Riesgo | Impacto | Mitigación |
 |---|---|---|---|
-| R1 | El semáforo no da cantidades | Se autoconfirma más de lo que hay | Umbrales por color; revisión manual por encima; usar la cantidad real si E0 la encuentra |
+| R1 | ~~El semáforo no da cantidades~~ | — | **Mitigado en E0:** la API informa las unidades exactas por color |
+| R12 | El ingreso del conector cierra la sesión de Chrome del dueño (o al revés), por `sessionEpoch` | Molestias; reingresos frecuentes | Reutilizar el token de 7 días; observar en las pruebas; si pasa, usar una cuenta secundaria si el proveedor la permite |
+| R13 | El proveedor activa 2FA | El conector no puede ingresar | Detección por `/api/2fa/precheck` → `BLOCKED` + alerta → verificación manual |
 | R2 | La lista queda vieja | Precios y estados desactualizados | Descarga diaria automática (si E0 la valida); aviso a 24 h y bloqueo a 72 h |
 | R3 | El proveedor cambia el formato del CSV | La importación falla | Validación de encabezado; rechazo total; nunca se aplica a medias |
 | R4 | El proveedor renombra productos (no hay SKU) | Duplicados o huérfanos; el conector no los encuentra | Informe de diferencias; vinculación manual; 0 o más de 1 coincidencia → `REVIEW` |

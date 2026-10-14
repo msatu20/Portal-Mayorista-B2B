@@ -2,6 +2,16 @@
 
 **Cuándo usarla:** al crear, modificar o depurar la consulta automática de stock (ADR-0005).
 
+## API relevada en E0 (detalle en `docs/e0-resultados-conector.md`)
+
+- Ingreso: `GET {portal}/api/auth/csrf` → `POST {portal}/api/auth/callback/credentials` (form: `username`, `password`,
+  `csrfToken`, `json=true`) → `GET {portal}/api/auth/session` → `user.accessToken` (JWT, 7 días).
+- Precheck de 2FA: `POST {portal}/api/2fa/precheck`. Si alguna vez responde `needsCode: true` → `BLOCKED` (no se automatiza el 2FA).
+- Stock: `GET {api}/user/products?page=&limit=50` con `Authorization: Bearer`. Campos: `productReference.id`, `name`,
+  `colorStock` (unidades por color), `productReference.priceUsd`.
+- Lista: `GET {api}/user/price-list/products?filter=0` (`name`, `category`, `stockEmoji`, `priceUsd`, `priceArs`) + `cotizacion`.
+- Los dominios van solo en `.env`; no se escriben en el código ni en la documentación.
+
 ## Procedimiento
 
 1. Credenciales desde `SUPPLIER_PORTAL_URL`, `SUPPLIER_API_URL`, `SUPPLIER_USER` y `SUPPLIER_PASSWORD`
